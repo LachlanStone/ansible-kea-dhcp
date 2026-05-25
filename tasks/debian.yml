@@ -7,10 +7,22 @@
   register: result
   until: result is successful
 
+- name: debian | Ensuring /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
 - name: debian | Adding Kea DHCP Repo Key
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: "{{ kea_dhcp_repo_key }}"
-    state: present
+    dest: /etc/apt/keyrings/isc-kea.asc
+    owner: root
+    group: root
+    mode: "0644"
   become: true
 
 - name: debian | Adding Kea DHCP Repo

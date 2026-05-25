@@ -24,7 +24,7 @@
 
 - name: set_facts | Setting Repo Info (Debian 1.6)
   ansible.builtin.set_fact:
-    kea_dhcp_repo: "{{ 'deb ' + kea_dhcp_repos + '/kea-1-6/deb/' + ansible_distribution | lower + ' ' + ansible_distribution_release | lower + ' main' }}"
+    kea_dhcp_repo: "{{ 'deb [signed-by=/etc/apt/keyrings/isc-kea.asc] ' + kea_dhcp_repos + '/kea-1-6/deb/' + ansible_distribution | lower + ' ' + ansible_distribution_release | lower + ' main' }}"
     kea_dhcp_repo_key: "{{ kea_dhcp_repos + '/kea-1-6/cfg/gpg/gpg.0607E2621F1564A6.key' }}"
   when:
     - ansible_os_family == "Debian"
@@ -33,7 +33,7 @@
 
 - name: set_facts | Setting Repo Info (Debian 1.7)
   ansible.builtin.set_fact:
-    kea_dhcp_repo: "{{ 'deb ' + kea_dhcp_repos + '/kea-1-7/deb/' + ansible_distribution | lower + ' ' + ansible_distribution_release | lower + ' main' }}"
+    kea_dhcp_repo: "{{ 'deb [signed-by=/etc/apt/keyrings/isc-kea.asc] ' + kea_dhcp_repos + '/kea-1-7/deb/' + ansible_distribution | lower + ' ' + ansible_distribution_release | lower + ' main' }}"
     kea_dhcp_repo_key: "{{ kea_dhcp_repos + '/kea-1-7/cfg/gpg/gpg.40544590508A17DE.key' }}"
   when:
     - ansible_os_family == "Debian"
