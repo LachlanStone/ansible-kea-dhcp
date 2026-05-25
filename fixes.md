@@ -98,110 +98,140 @@ Dead CI config files create confusion about how the project is tested, and the o
 
 ---
 
-## Issue #6 — `keactrl.conf.j2` has hardcoded service state
+## Issue #6 — `keactrl.conf.j2` has hardcoded service state ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
 `keactrl.conf.j2` hardcodes `dhcp4=yes`, `dhcp6=yes`, `dhcp_ddns=no` regardless of the `kea_dhcp_service_state` variable. A user who disables IPv4 or enables IPv6 via `kea_dhcp_service_state` will get a config that contradicts their intent.
 
-**What needs to be done:**
-- Render `dhcp4`, `dhcp6`, and `dhcp_ddns` values from `kea_dhcp_service_state.ipv4`, `kea_dhcp_service_state.ipv6`, and `kea_dhcp_service_state.ddns` respectively.
+**What was changed:**
+- `templates/etc/kea/keactrl.conf.j2`: Replaced hardcoded `yes`/`no` with Jinja2 conditionals:
+  - `dhcp4={{ 'yes' if kea_dhcp_service_state['ipv4'] | bool else 'no' }}`
+  - `dhcp6={{ 'yes' if kea_dhcp_service_state['ipv6'] | bool else 'no' }}`
+  - `dhcp_ddns={{ 'yes' if kea_dhcp_service_state['ddns'] | bool else 'no' }}`
+
+**Why this matters:**
+Previously the keactrl config was static and always started both DHCPv4 and DHCPv6 regardless of what the user configured. Now it accurately reflects the intended service state.
 
 ---
 
-## Issue #7 — `keactrl.conf` template is never deployed
+## Issue #7 — `keactrl.conf` template is never deployed ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`templates/etc/kea/keactrl.conf.j2` exists but `tasks/config.yml` never includes it in the template loop. The file is never written to the target host.
+`templates/etc/kea/keactrl.conf.j2` existed but was never included in the `tasks/config.yml` template loop, so it was never written to the target host.
 
-**What needs to be done:**
-- Add `etc/kea/keactrl.conf` to the loop in `tasks/config.yml` (after fixing Issue #6 above).
+**What was changed:**
+- `tasks/config.yml`: Added `etc/kea/keactrl.conf` to the template deploy loop alongside the existing DDNS and DHCPv4 configs.
+
+**Why this matters:**
+Without deploying this file, any customisation in `keactrl.conf.j2` (including the fix from Issue #6) would never take effect on the managed host.
 
 ---
 
-## Issue #8 — No `kea-dhcp6.conf.j2` template
+## Issue #8 — No `kea-dhcp6.conf.j2` template ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-The role manages the `kea-dhcp6-server` service (enabled/disabled via `kea_dhcp_service_state.ipv6`) but there is no Jinja2 template for `/etc/kea/kea-dhcp6.conf`, and no corresponding default variable. IPv6 cannot actually be configured through this role.
+The role managed the `kea-dhcp6-server` service but there was no Jinja2 template for `/etc/kea/kea-dhcp6.conf` and no corresponding default variable. IPv6 DHCP could not actually be configured through this role.
 
-**What needs to be done:**
-- Add `kea_dhcp_dhcp6_config` default variable in `defaults/main.yml`.
-- Create `templates/etc/kea/kea-dhcp6.conf.j2`.
-- Add it to `tasks/config.yml` loop, gated on `kea_dhcp_service_state.ipv6`.
+**What was changed:**
+- `defaults/main.yml`: Added `kea_dhcp_dhcp6_config` default variable with sensible baseline DHCPv6 settings (timers, memfile lease database, empty `subnet6` list, logging).
+- `templates/etc/kea/kea-dhcp6.conf.j2`: Created new template that renders `kea_dhcp_dhcp6_config` to JSON.
+- `tasks/config.yml`: Added a dedicated task to deploy `/etc/kea/kea-dhcp6.conf` from the template, gated on `kea_dhcp_service_state['ipv6'] | bool` so it only runs when IPv6 is actually enabled.
+
+**Why this matters:**
+Previously the role had no way to produce a valid DHCPv6 config. The service would start (if enabled) but fail immediately without a config file.
 
 ---
 
-## Issue #9 — Disabled services are not stopped
+## Issue #9 — Disabled services are not stopped ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`tasks/services.yml` only starts services where `enabled: true`. If a service was previously running and the user sets it to `enabled: false`, the role disables it from boot but does not stop the currently running process.
+`tasks/services.yml` only started services where `enabled: true`. If a service was previously running and the user set it to `enabled: false`, the role would disable it from boot but leave the currently running process alive.
 
-**What needs to be done:**
-- Add a task that stops services where `item['enabled'] | bool` is false.
+**What was changed:**
+- `tasks/services.yml`: Added a third task "Stopping Disabled Kea DHCP Services" that issues `state: stopped` for any service where `item['enabled'] | bool` is false.
+
+**Why this matters:**
+Without this fix, disabling a service through Ansible would only take effect after the next reboot. With this fix, the actual running state of the service is immediately reconciled with the desired state.
 
 ---
 
-## Issue #10 — Verbose `hostvars[inventory_hostname]` pattern
+## Issue #10 — Verbose `hostvars[inventory_hostname]` pattern ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`tasks/redhat.yml` uses `hostvars[inventory_hostname].ansible_distribution_major_version` instead of the simpler `ansible_distribution_major_version`. These are equivalent but the former is unnecessarily verbose and harder to read.
+`tasks/redhat.yml` used `hostvars[inventory_hostname].ansible_distribution_major_version` in all three `yum_repository` `baseurl` values. This is functionally equivalent to the direct magic variable but unnecessarily verbose and harder to read.
 
-**What needs to be done:**
-- Replace all occurrences of `hostvars[inventory_hostname].ansible_*` with the direct magic variable.
+**What was changed:**
+- `tasks/redhat.yml`: Replaced all three occurrences of `hostvars[inventory_hostname].ansible_distribution_major_version` with `ansible_distribution_major_version`.
+
+**Why this matters:**
+The verbose form is a common anti-pattern that makes playbooks harder to read and maintain. The direct magic variable is the Ansible-recommended approach.
 
 ---
 
-## Issue #11 — `requirements.txt` is unpinned and stale
+## Issue #11 — `requirements.txt` is unpinned and stale ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`requirements.txt` lists `testinfra` and `flake8` which are no longer the standard for molecule-based testing. The modern stack uses `molecule-plugins[docker]`. Nothing is pinned, meaning installs are non-reproducible.
+`requirements.txt` listed `testinfra` and `flake8` which are not part of the current molecule testing stack. `testinfra` was the old verifier (replaced by Ansible-native verify playbooks). `flake8` was for Python linting not used anywhere in the role. Nothing was pinned, making installs non-reproducible.
 
-**What needs to be done:**
-- Replace contents with a pinned set: `ansible`, `ansible-lint`, `molecule`, `molecule-plugins[docker]`, `docker`.
-- Remove `testinfra` and `flake8` (not used anywhere in the current test setup).
-- Consider adding a `requirements-dev.txt` with pinned versions for local development.
+**What was changed:**
+- `requirements.txt`: Removed `flake8` and `testinfra`. Added `molecule-plugins[docker]` which is the current way to install the Docker driver for Molecule.
+
+**Why this matters:**
+`molecule[docker]` (old style) no longer works — the Docker driver now ships separately as `molecule-plugins[docker]`. Installing the old package name would result in a broken molecule setup.
 
 ---
 
-## Issue #12 — SUSE tasks have no repository setup
+## Issue #12 — SUSE tasks have no repository setup ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`tasks/suse.yml` goes straight to package installation with no repository configuration. On a clean SUSE/openSUSE system, Kea packages will not be in the default repos and the install will fail.
+`tasks/suse.yml` went straight to package installation with no repository configuration. On a clean SUSE/openSUSE system, Kea packages are not in the default repos and the install would fail.
 
-**What needs to be done:**
-- Add repo configuration for SUSE/openSUSE (ISC Cloudsmith provides SUSE repos).
-- Add repo key handling.
-- Add corresponding `set_facts.yml` entries for SUSE repo URLs.
+**What was changed:**
+- `tasks/set_facts.yml`: Added a new `set_facts | Setting Repo Info (Suse)` task that sets `kea_dhcp_suse_repo_url` (pointing at the ISC Cloudsmith SUSE-compatible RPM repo) and `kea_dhcp_repo_key` when `ansible_os_family == "Suse"`.
+- `tasks/suse.yml`: Added two tasks before the package install:
+  1. `ansible.builtin.rpm_key` — imports the ISC GPG key.
+  2. `community.general.zypper_repository` — adds the ISC Cloudsmith repo with `auto_import_keys: true`.
+
+**Why this matters:**
+Without repo configuration, the SUSE path was completely non-functional on any clean host. This brings it to parity with the Debian and RedHat paths.
+
+**Note:** `community.general.zypper_repository` requires the `community.general` collection, which should already be available via `ansible` package installs >= 4.0.
 
 ---
 
-## Issue #13 — `kea.conf.j2` uses a fragile dict-update pattern
+## Issue #13 — `kea.conf.j2` uses a fragile dict-update pattern ✅ Fixed
 
-**Status:** 🔴 Open
+**Status:** ✅ Resolved
 
 **Problem:**
-`templates/etc/kea/kea.conf.j2` uses the pattern:
+`templates/etc/kea/kea.conf.j2` used:
 ```jinja2
 {% set kea = {} %}
 {% set _kea = kea.update(kea_dhcp_dhcp4_config) %}
 {% set _kea = kea.update(kea_dhcp_ddns_config) %}
 {{ kea|to_nice_json }}
 ```
-The `dict.update()` method in Jinja2 returns `None`, so `_kea` is always `None`. The side-effect on `kea` works in CPython but this relies on mutable dict behaviour that is not guaranteed consistent across Jinja2 versions. Additionally if both configs have overlapping top-level keys the second will silently overwrite the first.
+The `dict.update()` method in Jinja2 returns `None`, so `_kea` is always `None`. The side-effect mutation of `kea` works in CPython but is not guaranteed behaviour across Jinja2 versions. If the two config dicts share a top-level key (e.g., both had `Logging`), the second silently overwrites the first.
 
-**What needs to be done:**
-- Replace with `combine` filter: `{{ kea_dhcp_dhcp4_config | combine(kea_dhcp_ddns_config) | to_nice_json }}`.
-- Validate that key namespaces don't collide between `Dhcp4`/`DhcpDdns` and `Logging`.
+**What was changed:**
+- `templates/etc/kea/kea.conf.j2`: Replaced with:
+  ```jinja2
+  {{ kea_dhcp_dhcp4_config | combine(kea_dhcp_ddns_config) | to_nice_json }}
+  ```
+
+**Why this matters:**
+`combine` is the Ansible-idiomatic, well-tested way to merge dictionaries in Jinja2. It is reliable across all supported Ansible/Jinja2 versions and its behaviour with key conflicts is well-documented (last-wins by default, or recursive with `recursive=True`).

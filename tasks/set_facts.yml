@@ -93,6 +93,13 @@
   when:
     - ansible_os_family == "Suse"
 
+- name: set_facts | Setting Repo Info (Suse)
+  ansible.builtin.set_fact:
+    kea_dhcp_suse_repo_url: "{{ kea_dhcp_repos }}/kea-1-7/rpm/any-distro/any-version/$basearch"
+    kea_dhcp_repo_key: "{{ kea_dhcp_repos + '/kea-1-7/cfg/gpg/gpg.40544590508A17DE.key' }}"
+  when:
+    - ansible_os_family == "Suse"
+
 - name: set_facts | Setting Kea Packages (Suse)
   ansible.builtin.set_fact:
     kea_dhcp_packages:

@@ -14,3 +14,12 @@
   loop: "{{ kea_dhcp_services }}"
   when:
     - item['enabled'] | bool
+
+- name: services | Stopping Disabled Kea DHCP Services
+  ansible.builtin.service:
+    name: "{{ item['name'] }}"
+    state: stopped
+  become: true
+  loop: "{{ kea_dhcp_services }}"
+  when:
+    - not item['enabled'] | bool

@@ -15,13 +15,13 @@ dhcp6_srv=/usr/sbin/kea-dhcp6
 dhcp_ddns_srv=/usr/sbin/kea-dhcp-ddns
 
 # Start DHCPv4 server?
-dhcp4=yes
+dhcp4={{ 'yes' if kea_dhcp_service_state['ipv4'] | bool else 'no' }}
 
 # Start DHCPv6 server?
-dhcp6=yes
+dhcp6={{ 'yes' if kea_dhcp_service_state['ipv6'] | bool else 'no' }}
 
 # Start DHCP DDNS server?
-dhcp_ddns=no
+dhcp_ddns={{ 'yes' if kea_dhcp_service_state['ddns'] | bool else 'no' }}
 
 # Be verbose?
 kea_verbose=no

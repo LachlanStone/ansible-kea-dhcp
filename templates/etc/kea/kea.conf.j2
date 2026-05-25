@@ -1,4 +1,1 @@
-{% set kea = {} %}
-{% set _kea = kea.update(kea_dhcp_dhcp4_config) %}
-{% set _kea = kea.update(kea_dhcp_ddns_config) %}
-{{ kea|to_nice_json }}
+{{ kea_dhcp_dhcp4_config | combine(kea_dhcp_ddns_config) | to_nice_json }}

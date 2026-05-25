@@ -1,4 +1,18 @@
 ---
+- name: suse | Adding Kea DHCP Repo Key
+  ansible.builtin.rpm_key:
+    key: "{{ kea_dhcp_repo_key }}"
+    state: present
+  become: true
+
+- name: suse | Adding Kea DHCP Repo
+  community.general.zypper_repository:
+    name: isc-kea
+    repo: "{{ kea_dhcp_suse_repo_url }}"
+    auto_import_keys: true
+    state: present
+  become: true
+
 - name: suse | Installing Kea DHCP Packages
   ansible.builtin.package:
     name: "{{ kea_dhcp_packages }}"

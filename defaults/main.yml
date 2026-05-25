@@ -118,3 +118,34 @@ kea_dhcp_pri_domain_name: vagrant.local
 kea_dhcp_repos: https://dl.cloudsmith.io/public/isc
 
 kea_dhcp_version: 1.7
+
+# The DHCPv6 configuration below is formatted appropriately to be converted
+# directly to JSON using the kea-dhcp6.conf.j2 Jinja2 template.
+kea_dhcp_dhcp6_config:
+  Dhcp6:
+    renew-timer: 1000
+    rebind-timer: 2000
+    preferred-lifetime: 3000
+    valid-lifetime: 4000
+    interfaces-config:
+      interfaces:
+        - "*"
+    lease-database:
+      type: memfile
+      persist: true
+      lfc-interval: 0
+    expired-leases-processing:
+      reclaim-timer-wait-time: 10
+      flush-reclaimed-timer-wait-time: 25
+      hold-reclaimed-time: 3600
+      max-reclaim-leases: 100
+      max-reclaim-time: 250
+      unwarned-reclaim-cycles: 5
+    subnet6: []
+  Logging:
+    loggers:
+      - name: kea-dhcp6
+        output_options:
+          - output: /var/log/kea-dhcp6.log
+        severity: INFO
+        debuglevel: 0
